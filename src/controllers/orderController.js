@@ -1,12 +1,10 @@
+// src/controllers/orderController.js
 const { createPaymentTransaction } = require('../services/paymentService');
-const { addOrder, getOrderById, updateOrderStatusByOrderId } = require('../models/orderModel');
+const { addOrder, getOrderById: getOrderByIdFromDb, updateOrderStatusByOrderId } = require('../models/orderModel');
 
-// Create new order
-async function createOrder(req, res) {
+const createOrder = async (req, res) => {
   try {
     const { packageId, price, tax, serviceFee, total, customerName, customerEmail } = req.body;
-
-    // Buat order_id unik
     const order_id = 'ORDER-' + Date.now();
 
     const order = {
@@ -21,12 +19,12 @@ async function createOrder(req, res) {
       status: 'pending',
     };
 
-    // Panggil payment service → dapatkan token dan redirect_url
+    // panggil payment service
     const paymentRes = await createPaymentTransaction(order);
     order.payment_token = paymentRes.token;
     order.payment_redirect_url = paymentRes.redirect_url;
 
-    // Simpan order ke DB
+    // simpan ke db
     await addOrder(order);
 
     res.json({
@@ -39,25 +37,23 @@ async function createOrder(req, res) {
     console.error('Create order error:', error.message);
     res.status(500).json({ error: error.message });
   }
-}
+};
 
-// Get order by ID
-async function getOrder(req, res) {
+const getOrderById = async (req, res) => {
   try {
-    const order = await getOrderById(req.params.order_id);
+    const order = await getOrderByIdFromDb(req.params.order_id);
     if (order) {
       res.json(order);
     } else {
       res.status(404).json({ error: 'Order not found' });
     }
   } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ error: 'Failed to get order' });
+    console.error('Get order error:', error.message);
+    res.status(500).json({ error: error.message });
   }
-}
+};
 
-// Handle Midtrans webhook
-async function handleWebhook(req, res) {
+const handleWebhook = async (req, res) => {
   try {
     const notification = req.body;
     console.log('Received Midtrans webhook:', notification);
@@ -66,25 +62,21 @@ async function handleWebhook(req, res) {
     const transaction_status = notification.transaction_status;
 
     let newStatus = 'pending';
-    if (transaction_status === 'settlement') {
-      newStatus = 'paid';
-    } else if (transaction_status === 'expire') {
-      newStatus = 'expired';
-    } else if (transaction_status === 'cancel') {
-      newStatus = 'failed';
-    }
+    if (transaction_status === 'settlement') newStatus = 'paid';
+    else if (transaction_status === 'expire') newStatus = 'expired';
+    else if (transaction_status === 'cancel') newStatus = 'failed';
 
     await updateOrderStatusByOrderId(order_id, newStatus);
 
-    res.status(200).json({ message: 'Notification processed', newStatus });
+    res.json({ message: 'Notification processed', newStatus });
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Webhook error:', error.message);
     res.status(500).json({ error: 'Failed to process notification' });
   }
-}
+};
 
 module.exports = {
   createOrder,
-  getOrder,
+  getOrderById,
   handleWebhook,
 };
