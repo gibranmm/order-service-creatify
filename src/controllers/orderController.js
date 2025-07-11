@@ -34,8 +34,8 @@ const createOrder = async (req, res) => {
       status: order.status,
     });
   } catch (error) {
-    console.error('Create order error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Create order error:', error);
+    res.status(500).json({ error: error.message || 'Unknown error', stack: error.stack });
   }
 };
 
@@ -48,8 +48,8 @@ const getOrderById = async (req, res) => {
       res.status(404).json({ error: 'Order not found' });
     }
   } catch (error) {
-    console.error('Get order error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Create order error:', error);
+    res.status(500).json({ error: error.message || 'Unknown error', stack: error.stack });
   }
 };
 
